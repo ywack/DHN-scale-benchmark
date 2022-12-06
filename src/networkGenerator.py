@@ -6,6 +6,7 @@ Created on Mon Dec  5 15:07:34 2022
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 class circNet2Prod:
     """
@@ -27,6 +28,13 @@ class circNet2Prod:
         self.NodeNumber = None
 
     def addCircles(self, N):
+        """
+        Add circles of nodes and edges to the current graph.
+        
+        Args:
+            N (int): The number of circles to add to the graph.
+        """
+        
         # Make nodes
         theta, rho = self.makeNodes(N)
     
@@ -41,14 +49,20 @@ class circNet2Prod:
     
         # Connect to leftmost and rightmost consumers
         s_out, t_out = self.connectToConsumers(x)
-        
+    
+        # Add producer connections to the list of edges
         s.extend(s_out)
         t.extend(t_out)
+    
         # Save variables
         self.NodeNumber = len(theta)
         self.Nx, self.Ny = x, y
     
         self.Es, self.Et = s, t
+        
+        # Define consumer and junctions
+        self.defineConJun()
+
     def makeNodes(self, N):
         theta = [0]
         rho = [0]
@@ -131,18 +145,32 @@ class circNet2Prod:
         return theta, rho
     
     def connectToConsumers(self, x):
+        """
+        Connect the leftmost and rightmost producers in the list x to the 3 smallest and 3 largest elements of x, respectively.
+        
+        Args:
+            x (list): A list of integers.
+        
+        Returns:
+            tuple: A tuple containing two lists of integers, representing the source and target indices of the connections.
+        """
+        
         # Find the leftmost and rightmost producers
         left_producer = min(x)
         right_producer = max(x)
     
-        # Find the indices of the 3 smallest and 3 largest elements in x, excluding the producers    
-        indexed_x = list(enumerate(x)) # Create a list of tuples containing the index and value of each element in x       
-        sorted_x = sorted(indexed_x, key=lambda t: t[1]) # Sort the list of tuples by the value of each tuple          
-        smallest_indices = [i[0] for i in sorted_x[1:4]] # Create a list of the indices of the 3 smallest elements of x, including duplicates
-        
+        # Create a list of tuples containing the index and value of each element in x
+        indexed_x = list(enumerate(x))
+    
+        # Sort the list of tuples by the value of each tuple
+        sorted_x = sorted(indexed_x, key=lambda t: t[1])
+    
+        # Create a list of the indices of the 3 smallest elements of x, including duplicates
+        smallest_indices = [i[0] for i in sorted_x[1:4]]
+    
         # Create a list of the indices of the 3 biggest elements of x, including duplicates
         biggest_indices = [i[0] for i in sorted_x[-4:-1]]
-        
+    
         # Connect the leftmost producer to the 3 smallest elements
         s_out = [x.index(left_producer)] * 3
         t_out = smallest_indices
@@ -154,42 +182,89 @@ class circNet2Prod:
         # Add matlab offset
         t_out = [x + 1 for x in t_out]
         s_out = [x + 1 for x in s_out]
-        
+    
         return s_out, t_out
+
 
     def defineConJun(self):
         """
-        Defines the consumer, junction, and producer nodes in the network and sets up
-        the `mapNode2jcp` dictionary.
+        Define consumer and junction nodes in the current graph.
         """
+        
+        # Initialize empty lists for consumers and junctions
         self.c = []
         self.j = []
-        self.mapNode2jcp = {}
-        for i in range(1, self.NodeNumber+1):
-            if i < self.NodeNumber-2:
-                self.j.append(i)
-                self.mapNode2jcp[i] = (0, 0, 0)
+        n2jcp = []
+        a = 3
+        
+        # Iterate over all nodes in the graph
+        for k in range(self.NodeNumber-2):
+            
+            # Check if the current node is a consumer or a junction
+            if k % a == 0:
+                self.j.append(k)
+                n2jcp.append(f"Junction{len(self.j)}")
             else:
-                self.p.append(i)
-                self.mapNode2jcp[i] = (1, 0, 0)
+                self.c.append(k)
+                n2jcp.append(f"Consumer{len(self.c)}")
+        
+        # Append producer nodes to the list of nodes
+        self.p = [self.NodeNumber, self.NodeNumber-1]
 
-        for i in range(1, self.NodeNumber-2):
-            for j in range(1, len(self.Es)+1):
-                if self.Es[j] == i or self.Et[j] == i:
-                    if self.Es[j] > self.NodeNumber-2 or self.Et[j] > self.NodeNumber-2:
-                        self.mapNode2jcp[i] = (self.mapNode2jcp[i][0], 1, self.mapNode2jcp[i][2])
-                    else:
-                        self.mapNode2jcp[i] = (self.mapNode2jcp[i][0], self.mapNode2jcp[i][1], 1)
     def plot(self):
         """
         Visualizes the network using Matplotlib.
         """
+        
+        # Set colors for consumers, junctions, and producers
+        consumer_color = "blue"
+        junction_color = "green"
+        producer_color = "red"
+        
+        # Initialize list of colors for each node in the network
+        node_colors = []        
+        
+        # Iterate over all nodes in the network
+        for i in range(self.NodeNumber+1):
+            
+            # Check if the current node is a consumer, junction, or producer
+            if i in self.c:
+                node_colors.append(consumer_color)
+            elif i in self.j:
+                node_colors.append(junction_color)
+            elif i in self.p:
+                node_colors.append(producer_color)
+            
         # Visualize the network
         plt.figure()
-        plt.plot(self.Nx, self.Ny, 'bo')
+        plt.scatter(self.Nx, self.Ny, c=node_colors)
+                
         for i in range(len(self.Es)):
             plt.plot([self.Nx[self.Es[i]-1], self.Nx[self.Et[i]-1]], [self.Ny[self.Es[i]-1], self.Ny[self.Et[i]-1]], 'k-')
         plt.show()
+    def export(self, name):
+        # Define the data for the "Nodes" sheet
+        ID = []
+        Type = []
+        Xposition = []
+        Yposition = []
+        
+        # Iterate over producers, consumers, and junctions
+        for node_type, nodes in (("producer", self.p), ("consumer", self.c), ("junction", self.j)):
+            for k in range(len(nodes)):
+                ID.append(nodes[k])
+                Type.append(node_type)
+                Xposition.append(self.Nx[nodes[k]-1])
+                Yposition.append(self.Ny[nodes[k]-1])
+        
+        # Create a dictionary from the data
+        data = {"ID": ID, "Type": Type, "Xposition": Xposition, "Yposition": Yposition}
+        
+        # Create a DataFrame from the dictionary
+        df = pd.DataFrame(data)
+        
+        # Export the DataFrame to an Excel spreadsheet
+        df.to_excel(f"topo_{name}_nodes_{len(self.Nx)}.xlsx", sheet_name="Nodes", index=False)
 
 def cartesian(theta, rho):
     """
