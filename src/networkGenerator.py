@@ -16,16 +16,121 @@ class circNet2Prod:
         """
         Initializes a new `circNet2Prod` object.
         """
-        self.r0 = 100
-        self.Nx = None
-        self.Ny = None
-        self.Es = None
+        self.r0 = 100   # Initial radius of the network
+        self.Nx = None  # Node x coordinates
+        self.Ny = None  # Node y coordinates
+        self.Es = None  # Source nodes of edges
         self.Et = None
         self.p = []
         self.c = None
         self.j = None
         self.mapNode2jcp = None
         self.NodeNumber = None
+
+
+    def addSegments(self, N):
+        """
+        Adds segments to the circular network.
+        
+        :param N: The number of segments to add.
+        :type N: int
+        """
+        # Initial ring of nodes and edges 
+        r = self.r0
+        theta = [0, 0, np.pi/4, np.pi/2, 3*np.pi/4, np.pi, 5/4*np.pi, 6/4*np.pi, 7/4*np.pi]
+        rho = [0, r, r, r, r, r, r, r, r]
+
+        source = [1, 1, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        target = [2, 4, 6, 8, 3, 4, 5, 6, 7, 8, 9, 2]
+
+
+        r = r + self.r0
+        l = 2  # ring number
+        s = 1  # segment number
+        id0 = [2, 3, 4, 5, 6, 7, 8, 9] # node ids of the previous ring
+
+        for k in range(N):
+            n = 2**(l+2)
+            n0 = 2**(l+1)  # number of nodes in previous ring
+            sN = 4*2**(l-1)  # number of segments in ring
+
+            # Make initial segment of ring
+            if s == 1:
+                theta.append(0)
+                rho.append(r)
+                source.append(id0[0])
+                target.append(len(theta))
+
+
+            # Final segment of ring
+            if s == sN:
+                theta.append((s/sN - 1/n)*2*np.pi)
+                rho.append(r)
+                source.extend([len(theta) - n+1, len(theta)])
+                target.extend([len(theta), len(theta)-1])
+
+                # Add cross edges between the 4 outer corners of the segment
+                source.extend([len(theta) - n+1])
+                target.extend([id0[s-1]])
+                source.extend([id0[s-n]])
+                target.extend([len(theta)-1])                
+
+                # Jump to next ring
+                s = 1
+                l = l+1
+                r = r + self.r0
+                id0 = list(range(id0[-1]+1, id0[-1]+n+1))  # update node ids of the previous ring
+                continue
+                
+            # Add nodes
+            theta.extend([(s / sN - 1 / n) * 2 * np.pi, s / sN * 2 * np.pi])
+            rho.extend([r, r])
+            # Add Edges
+            idL = len(theta) # Left node
+            idR = idL - 1   # Right node
+            # Angular Edges
+            source.append(idL)
+            target.append(idR)
+            source.append(idR)
+            target.append(idL - 2)
+            # Radial edges
+            source.append(idL)
+            target.append(id0[s])
+            # Add cross edges between the 4 outer corners of the segment
+            source.append(idL - 2)
+            target.append(id0[s])
+            source.append(idL)
+            target.append(id0[s-1])
+
+            s = s + 1  # Iterate segment
+        # Convert polar coordinates to Cartesian coordinates
+        x, y = cartesian(theta, rho)
+
+        # Check that source and target dont contain duplicate edges. If they do, remove them. Raise warning if duplicate edges are found.
+        df = pd.DataFrame({'source': source, 'target': target})
+        df = df.drop_duplicates()
+        if len(df) != len(source):
+            print('Duplicate edges found in network. Please check the source and target lists.')
+        source = df['source'].tolist()
+        target = df['target'].tolist()
+
+        # Save coordinates and edge information to object properties
+        self.NodeNumber = len(x)
+        self.Nx = x
+        self.Ny = y
+        self.Es = source
+        self.Et = target
+
+        # Define connections and junctions in network
+        self.defineConJun(centralProducer=True)
+
+        # Append producer nodes to the network
+        self.p = [0]
+
+
+                    
+
+               
 
     def addCircles(self, N):
         """
@@ -62,6 +167,9 @@ class circNet2Prod:
         
         # Define consumer and junctions
         self.defineConJun()
+
+        # Append producer nodes to the list of nodes
+        self.p = [self.NodeNumber-1, self.NodeNumber-2]
 
     def makeNodes(self, N):
         theta = [0]
@@ -186,7 +294,7 @@ class circNet2Prod:
         return s_out, t_out
 
 
-    def defineConJun(self):
+    def defineConJun(self,centralProducer = False):
         """
         Define consumer and junction nodes in the current graph.
         """
@@ -200,6 +308,10 @@ class circNet2Prod:
         # Iterate over all nodes in the graph
         for k in range(self.NodeNumber-2):
             
+            # Skip the central producer node
+            if centralProducer and k == 0:
+                continue
+
             # Check if the current node is a consumer or a junction
             if k % a == 0:
                 self.j.append(k)
@@ -208,8 +320,7 @@ class circNet2Prod:
                 self.c.append(k)
                 n2jcp.append(f"Consumer{len(self.c)}")
         
-        # Append producer nodes to the list of nodes
-        self.p = [self.NodeNumber, self.NodeNumber-1]
+        
 
     def plot(self):
         """
@@ -225,7 +336,7 @@ class circNet2Prod:
         node_colors = []        
         
         # Iterate over all nodes in the network
-        for i in range(self.NodeNumber+1):
+        for i in range(self.NodeNumber):
             
             # Check if the current node is a consumer, junction, or producer
             if i in self.c:
@@ -234,6 +345,8 @@ class circNet2Prod:
                 node_colors.append(junction_color)
             elif i in self.p:
                 node_colors.append(producer_color)
+            else:
+                node_colors.append("black")
             
         # Visualize the network
         plt.figure()

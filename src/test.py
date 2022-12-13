@@ -10,6 +10,7 @@ from networkGenerator import circNet2Prod
 
 # Create a network with 1 circular layer
 net = circNet2Prod()
-net.addCircles(3)
+#net.addCircles(1)
+net.addSegments(9)
 # Visualize the network
 net.plot()
