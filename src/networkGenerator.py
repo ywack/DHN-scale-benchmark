@@ -2,31 +2,48 @@
 """
 Created on Mon Dec  5 15:07:34 2022
 
-@author: u0128847
+@author: Yannick Wack
 """
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import os
 
-class circNet2Prod:
+class benchmarkNetworks:
     """
-    A class that represents a circular network of nodes with producers and consumers.
+    A class that represents a scalable circular network of nodes and edges with producers and consumers. It can be used to generate the benchmark networks for the paper.
     """
     def __init__(self):
         """
-        Initializes a new `circNet2Prod` object.
+        Initializes a new `benchmarkNetworks` object.
         """
         self.r0 = 100   # Initial radius of the network
         self.Nx = None  # Node x coordinates
         self.Ny = None  # Node y coordinates
         self.Es = None  # Source nodes of edges
-        self.Et = None
-        self.p = []
-        self.c = None
-        self.j = None
-        self.mapNode2jcp = None
-        self.NodeNumber = None
+        self.Et = None  # Target nodes of edges
+        self.p = []     # List of producer nodes
+        self.c = None   # List of consumer nodes
+        self.j = None   # List of junction nodes
+        self.NodeNumber = None # Number of nodes in the network
 
+    def buildOneProducerCase(self,segmentNumber):
+        """
+        Creates a circular network with one producer in the center and 'segmentNumber' segements around it.
+        
+        :param segmentNumber: The number of segments in the network.
+        :type segmentNumber: int
+        """
+        self.addSegments(segmentNumber)
+
+    def buildTwoProducerCase(self,circleNumber):
+        """
+        Creates a circular network with two producers on each side and 'circleNumber' rings around it.
+        
+        :param circleNumber: The number of rings in the network.
+        :type circleNumber: int
+        """
+        self.addCircles(circleNumber)
 
     def addSegments(self, N):
         """
@@ -43,12 +60,12 @@ class circNet2Prod:
         source = [1, 1, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         target = [2, 4, 6, 8, 3, 4, 5, 6, 7, 8, 9, 2]
 
-
         r = r + self.r0
         l = 2  # ring number
         s = 1  # segment number
         id0 = [2, 3, 4, 5, 6, 7, 8, 9] # node ids of the previous ring
 
+        # Add the additional segments to the network
         for k in range(N):
             n = 2**(l+2)
             n0 = 2**(l+1)  # number of nodes in previous ring
@@ -60,7 +77,6 @@ class circNet2Prod:
                 rho.append(r)
                 source.append(id0[0])
                 target.append(len(theta))
-
 
             # Final segment of ring
             if s == sN:
@@ -127,11 +143,6 @@ class circNet2Prod:
         # Append producer nodes to the network
         self.p = [0]
 
-
-                    
-
-               
-
     def addCircles(self, N):
         """
         Add circles of nodes and edges to the current graph.
@@ -172,16 +183,27 @@ class circNet2Prod:
         self.p = [self.NodeNumber-1, self.NodeNumber-2]
 
     def makeNodes(self, N):
+        """
+        Makes the nodes for the circular network.
+
+        Arguments:
+        N: The number of circles in the network.
+
+        Returns:
+        theta: The angular coordinates of the nodes.
+        rho: The radial coordinates of the nodes.
+        """
         theta = [0]
         rho = [0]
         r = 0
-        for l in range(1, N + 1):
+        for l in range(1, N + 1):   # l is the ring number
             r = r + self.r0
             n = 2**(l+2)
-            for k in range(1, n + 1):
+            for k in range(1, n + 1):   # k is the node number
                 theta.append(2*np.pi*k/n)
                 rho.append(r)
         return theta, rho    
+
     def makeEdges(self, N, theta, rho):
         """
         Makes the edges for the circular network.
@@ -297,12 +319,17 @@ class circNet2Prod:
     def defineConJun(self,centralProducer = False):
         """
         Define consumer and junction nodes in the current graph.
+
+        Arguments:
+        centralProducer: Boolean indicating whether the central producer node should be included in the list of consumers.
+
+
+
         """
         
         # Initialize empty lists for consumers and junctions
         self.c = []
         self.j = []
-        n2jcp = []
         a = 3
         
         # Iterate over all nodes in the graph
@@ -315,10 +342,8 @@ class circNet2Prod:
             # Check if the current node is a consumer or a junction
             if k % a == 0:
                 self.j.append(k)
-                n2jcp.append(f"Junction{len(self.j)}")
             else:
                 self.c.append(k)
-                n2jcp.append(f"Consumer{len(self.c)}")
         
         
 
@@ -354,6 +379,15 @@ class circNet2Prod:
                 
         for i in range(len(self.Es)):
             plt.plot([self.Nx[self.Es[i]-1], self.Nx[self.Et[i]-1]], [self.Ny[self.Es[i]-1], self.Ny[self.Et[i]-1]], 'k-')
+        
+        # Add an independent legend. Place the legend in the top left corner of the plot.
+        plt.scatter([], [], c=consumer_color, label="Consumer")
+        plt.scatter([], [], c=junction_color, label="Junction")
+        plt.scatter([], [], c=producer_color, label="Producer")
+        plt.legend(loc="upper left")
+
+        
+        
         plt.show()
     def export(self, name):
         # Define the data for the "Nodes" sheet
@@ -376,8 +410,39 @@ class circNet2Prod:
         # Create a DataFrame from the dictionary
         df = pd.DataFrame(data)
         
-        # Export the DataFrame to an Excel spreadsheet
-        df.to_excel(f"topo_{name}_nodes_{len(self.Nx)}.xlsx", sheet_name="Nodes", index=False)
+        # Create an output path one level above the current file
+        outputPath = os.path.join(os.path.dirname(__file__), "..", "output")
+        
+        # Create the output folder if it does not exist
+        if not os.path.exists(outputPath):
+            os.mkdir(outputPath)
+        
+        # Define the path to the output file
+        outputFilePath = os.path.join(outputPath, name + ".xlsx")
+        
+        # Export the DataFrame to the output file
+        df.to_excel(outputFilePath, index=False, sheet_name="Nodes")
+        
+        # Define the data for the "Edges" sheet
+        ID = []
+        Source = []
+        Target = []
+        
+        # Iterate over all connections in the network
+        for i in range(len(self.Es)):
+            ID.append(i)
+            Source.append(self.Es[i])
+            Target.append(self.Et[i])
+        
+        # Create a dictionary from the data
+        data = {"ID": ID, "Source": Source, "Target": Target}
+        
+        # Create a DataFrame from the dictionary
+        df = pd.DataFrame(data)
+        
+        # Add the DataFrame to the output file without losing the data in the "Nodes" sheet by using the ExcelWriter class
+        with pd.ExcelWriter(outputFilePath, engine="openpyxl", mode="a") as writer:
+            df.to_excel(writer, index=False, sheet_name="Edges")
 
 def cartesian(theta, rho):
     """
