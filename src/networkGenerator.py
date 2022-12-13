@@ -26,7 +26,7 @@ class benchmarkNetworks:
         self.c = None   # List of consumer nodes
         self.j = None   # List of junction nodes
         self.NodeNumber = None # Number of nodes in the network
-
+    # Build the two benchmark cases
     def buildOneProducerCase(self,segmentNumber):
         """
         Creates a circular network with one producer in the center and 'segmentNumber' segements around it.
@@ -35,7 +35,6 @@ class benchmarkNetworks:
         :type segmentNumber: int
         """
         self.addSegments(segmentNumber)
-
     def buildTwoProducerCase(self,circleNumber):
         """
         Creates a circular network with two producers on each side and 'circleNumber' rings around it.
@@ -44,7 +43,8 @@ class benchmarkNetworks:
         :type circleNumber: int
         """
         self.addCircles(circleNumber)
-
+    
+    # Main methods building a network based on segeemnts and circles
     def addSegments(self, N):
         """
         Adds segments to the circular network.
@@ -142,7 +142,6 @@ class benchmarkNetworks:
 
         # Append producer nodes to the network
         self.p = [0]
-
     def addCircles(self, N):
         """
         Add circles of nodes and edges to the current graph.
@@ -181,7 +180,8 @@ class benchmarkNetworks:
 
         # Append producer nodes to the list of nodes
         self.p = [self.NodeNumber-1, self.NodeNumber-2]
-
+    
+    # Submethods of the addCircles method
     def makeNodes(self, N):
         """
         Makes the nodes for the circular network.
@@ -203,7 +203,6 @@ class benchmarkNetworks:
                 theta.append(2*np.pi*k/n)
                 rho.append(r)
         return theta, rho    
-
     def makeEdges(self, N, theta, rho):
         """
         Makes the edges for the circular network.
@@ -260,9 +259,6 @@ class benchmarkNetworks:
             nodeCount += n
         
         return [s, t]
-
-
-
     def addProducerNodes(self, N, theta, rho):
         """
         Adds two producer nodes to the network, at angles 0 and pi, and at a distance
@@ -272,8 +268,7 @@ class benchmarkNetworks:
         r = rho[-1]
         theta.extend([0, np.pi])
         rho.extend([r + self.r0/2, r + self.r0/2])
-        return theta, rho
-    
+        return theta, rho 
     def connectToConsumers(self, x):
         """
         Connect the leftmost and rightmost producers in the list x to the 3 smallest and 3 largest elements of x, respectively.
@@ -314,8 +309,6 @@ class benchmarkNetworks:
         s_out = [x + 1 for x in s_out]
     
         return s_out, t_out
-
-
     def defineConJun(self,centralProducer = False):
         """
         Define consumer and junction nodes in the current graph.
@@ -344,9 +337,8 @@ class benchmarkNetworks:
                 self.j.append(k)
             else:
                 self.c.append(k)
-        
-        
-
+    
+    # Plot and save the network
     def plot(self):
         """
         Visualizes the network using Matplotlib.
