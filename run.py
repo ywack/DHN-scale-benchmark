@@ -11,14 +11,14 @@ from src import networkGenerator as ng
 
 # Create the circular network for the onoe producer benchmark case
 oneProducerNetwork = ng.benchmarkNetworks()
-oneProducerNetwork.buildOneProducerCase(12)
+oneProducerNetwork.buildOneProducerCase(12)     # Build the single producer network with 12 segments
 
 oneProducerNetwork.plot()
 oneProducerNetwork.export("oneProducerCase")
 
 # Create the two producer benchmark case
 twoProducerNetwork = ng.benchmarkNetworks()
-twoProducerNetwork.buildTwoProducerCase(2)
+twoProducerNetwork.buildTwoProducerCase(2)    # Build the two producer network with 2 circles
 
 twoProducerNetwork.plot()
 oneProducerNetwork.export("twoProducerCase")
